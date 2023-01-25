@@ -57,7 +57,7 @@ fn find_program(name: &str) -> Option<PathBuf> {
         .stderr(Stdio::inherit())
         .output();
       if let Ok(output) = where_result {
-        let path = String::from_utf8_lossy(&*output.stdout).to_string();
+        let path = String::from_utf8_lossy(&output.stdout).to_string();
         let path = path.trim_end();
         let buf = PathBuf::from(path.to_string());
         if !buf.exists() {
