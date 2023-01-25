@@ -5,6 +5,7 @@ use serde::{
   Deserialize, Deserializer,
 };
 
+#[allow(dead_code)]
 pub fn na_or_i64<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
 where
   D: Deserializer<'de>,

@@ -146,20 +146,19 @@ impl FfProbe {
 
 #[derive(Deserialize, Debug)]
 pub struct ProbeData {
-  pub packets: Vec<Packet>,
-  pub streams: Vec<Stream>,
-  pub format: Format,
+  pub packets: Option<Vec<Packet>>,
+  pub streams: Option<Vec<Stream>>,
+  pub format: Option<Format>,
   pub error: Option<Error>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Packet {
   pub stream_index: u64,
-  #[serde(deserialize_with = "na_or_i64")]
-  pub pts: Option<i64>,
-  #[serde(deserialize_with = "na_or_from_string")]
-  pub pts_time: Option<f64>,
+  pub pts: i64,
+  #[serde(deserialize_with = "de_from_string")]
+  pub pts_time: f64,
   #[serde(deserialize_with = "de_from_string")]
   pub size: u32,
 }
@@ -170,7 +169,7 @@ pub struct Stream {
   pub codec_name: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Format {
   pub filename: String,
   pub format_name: String,

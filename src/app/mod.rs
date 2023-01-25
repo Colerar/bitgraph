@@ -1,16 +1,24 @@
 mod about_window;
+mod bitrate;
 
 use std::path::PathBuf;
 
-use egui::Button;
+use egui::{
+  plot::{Bar, BarChart, Legend, Plot},
+  Button, Color32,
+};
 
-use crate::history::History;
+use crate::{
+  ffmpeg::{FfProbe, Packet},
+  history::History,
+};
 
-use self::about_window::AboutWindow;
+use self::{about_window::AboutWindow, bitrate::AnalyzeStatus};
 
 pub struct MainApp {
   about: AboutWindow,
-  current: Option<PathBuf>,
+  status: AnalyzeStatus,
+  ffprobe: Option<FfProbe>,
   history: History<PathBuf>,
 }
 
@@ -18,7 +26,14 @@ impl Default for MainApp {
   fn default() -> Self {
     Self {
       about: Default::default(),
-      current: None,
+      status: AnalyzeStatus::NotSelected,
+      ffprobe: match FfProbe::find() {
+        Ok(ok) => Some(ok),
+        Err(err) => {
+          println!("Failed to find FFprobe: {err:?}");
+          None
+        },
+      },
       history: History::with_capacity(10, 10),
     }
   }
@@ -40,13 +55,11 @@ impl eframe::App for MainApp {
       egui::menu::bar(ui, |ui| {
         ui.menu_button("File", |ui| {
           if ui.button("Open").clicked() {
-            let work_dir = std::env::current_dir().unwrap();
             let file = rfd::FileDialog::new()
-              .set_directory(work_dir)
               .set_title("Select a Media File")
               .pick_file();
-            self.current = file.clone();
             if let Some(file) = file {
+              self.status = AnalyzeStatus::WaitUpdate(file.clone());
               self.history.push(file);
             };
           }
@@ -63,7 +76,7 @@ impl eframe::App for MainApp {
                   str = str.replace(home.as_str(), "~").into();
                 }
                 if ui.button(str.as_ref()).clicked() {
-                  self.current = Some(recent.clone());
+                  self.status = AnalyzeStatus::WaitUpdate(recent.clone());
                   top = Some(recent.clone());
                   break;
                 };
@@ -80,8 +93,15 @@ impl eframe::App for MainApp {
             }
           });
 
-          if ui.button("Close").clicked() {
-            self.current = None;
+          let close_button = Button::new("Close");
+          if ui
+            .add_enabled(
+              !matches!(self.status, AnalyzeStatus::NotSelected),
+              close_button,
+            )
+            .clicked()
+          {
+            self.status = AnalyzeStatus::NotSelected;
           }
 
           if ui.button("Quit").clicked() {
@@ -97,11 +117,103 @@ impl eframe::App for MainApp {
     });
 
     egui::CentralPanel::default().show(ctx, |ui| 'center: {
-      let Some(current) = self.current.as_ref() else {
+      if let AnalyzeStatus::NotSelected = self.status {
         ui.heading("No file selected");
         break 'center;
       };
-      ui.heading(format!("TODO, current: {}", current.to_string_lossy()));
+      if self.ffprobe.is_none() {
+        ui.heading("No FFprobe found");
+        break 'center;
+      }
+
+      if let AnalyzeStatus::WaitUpdate(path) = &self.status {
+        ui.horizontal_wrapped(|ui| {
+          ui.heading("Updating...");
+          ui.spinner();
+        });
+
+        let probe = self.ffprobe.as_ref().unwrap().probe(path, None);
+        let data = match probe {
+          Ok(ok) => ok,
+          Err(err) => {
+            self.status = AnalyzeStatus::FfprobeFailed {
+              ffmpeg: None,
+              anyhow: Some(err),
+            };
+            break 'center;
+          },
+        };
+        if let Some(err) = data.error {
+          self.status = AnalyzeStatus::FfprobeFailed {
+            ffmpeg: Some(err),
+            anyhow: None,
+          };
+          break 'center;
+        }
+
+        self.status = AnalyzeStatus::Success(data);
+        break 'center;
+      }
+
+      if let AnalyzeStatus::FfprobeFailed { ffmpeg, anyhow } = &self.status {
+        ui.heading("Failed to probe");
+        if let Some(err) = ffmpeg {
+          ui.label(format!("FFprobe result: {err:#?}"));
+        }
+        if let Some(err) = anyhow {
+          ui.label(format!("Error: {err:#?}"));
+        }
+        break 'center;
+      }
+
+      if let AnalyzeStatus::Success(data) = &self.status {
+        let mut packets: Vec<Packet> = data
+          .packets
+          .clone()
+          .unwrap()
+          .into_iter()
+          .filter(|i| i.stream_index == 0)
+          .collect();
+        packets.sort_unstable_by(|a, b| a.pts.cmp(&b.pts));
+        let format = data.format.clone().unwrap();
+        let duration = format.duration.unwrap();
+
+        let width = 10.0;
+        let mut vec = vec![0f64; f64::ceil(duration / width) as usize];
+        packets.iter().for_each(|i| {
+          let index = f64::floor(i.pts_time / width) as usize;
+          *vec.get_mut(index).unwrap() += i.size as f64 / width / 1024.0;
+        });
+
+        let color = Color32::from_rgb(137, 130, 247);
+        let vec: Vec<_> = vec
+          .into_iter()
+          .enumerate()
+          .map(|(idx, size)| {
+            Bar::new(idx as f64 * width + (width / 2.0), size)
+              .width(width)
+              .fill(color)
+          })
+          .collect();
+
+        self.status = AnalyzeStatus::Draw(vec);
+
+        break 'center;
+      }
+
+      if let AnalyzeStatus::Draw(vec) = &self.status {
+        let chart = BarChart::new(vec.clone())
+          .color(Color32::LIGHT_BLUE)
+          .name("KiB/s");
+
+        Plot::new("BitRate")
+          .legend(Legend::default())
+          .show(ui, |plot_ui| {
+            plot_ui.bar_chart(chart);
+          });
+
+        break 'center;
+      }
     });
 
     self.about.ui(ctx);
