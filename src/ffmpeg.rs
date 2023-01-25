@@ -10,7 +10,7 @@ use std::{
   process::{Command, Stdio},
 };
 
-use crate::serde::*;
+use crate::serde_ext::*;
 
 use anyhow::{ensure, Context};
 use serde::Deserialize;
