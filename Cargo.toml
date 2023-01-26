@@ -3,6 +3,7 @@ name = "bitgraph"
 version = "0.1.0"
 edition = "2021"
 resolver = "2"
+description = "BitGraph is a media bitrate analyzer based on FFprobe, written in Rust, with cross-platform support."
 
 [dependencies]
 anyhow = "1.0.68"
@@ -20,3 +21,6 @@ eframe = { version = "0.20.0", default-features = false, features = [
   "glow",          # Use the glow rendering backend. Alternative: "wgpu".
   "dark-light",    # Auto-detect dark/light theme perference
 ] }
+
+[package.metadata.bundle]
+identifier = "moe.sdl.bitgraph"

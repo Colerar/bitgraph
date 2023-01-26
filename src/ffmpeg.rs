@@ -8,6 +8,7 @@ use std::{
   io::BufReader,
   path::{Path, PathBuf},
   process::{Command, Stdio},
+  str::FromStr,
 };
 
 use crate::serde_ext::*;
@@ -30,11 +31,15 @@ fn find_program(name: &str) -> Option<PathBuf> {
   let work_dir = work_dir();
   let mut work_dir_lib = work_dir.clone();
   work_dir_lib.push("lib");
+  let usr_local_bin = PathBuf::from_str("/usr/local/bin").unwrap();
+  let usr_bin = PathBuf::from_str("/usr/bin").unwrap();
   let dirs: Vec<&Path> = vec![
     exe_dir,
     exe_dir_lib.as_path(),
     work_dir.as_path(),
     work_dir_lib.as_path(),
+    usr_local_bin.as_path(),
+    usr_bin.as_path(),
   ];
 
   dirs
