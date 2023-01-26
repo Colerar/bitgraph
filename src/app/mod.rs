@@ -116,6 +116,23 @@ impl eframe::App for MainApp {
       });
     });
 
+    'dropped_files: {
+      let dropped_files = &ctx.input().raw.dropped_files;
+      if !dropped_files.is_empty() {
+        let file = dropped_files.first().unwrap();
+        let Some(path) = file.path.as_ref() else {
+          break 'dropped_files;
+        };
+        if !path.exists() {
+          break 'dropped_files;
+        }
+        if !path.is_file() {
+          break 'dropped_files;
+        }
+        self.status = AnalyzeStatus::WaitUpdate(path.clone());
+      };
+    }
+
     egui::CentralPanel::default().show(ctx, |ui| 'center: {
       if let AnalyzeStatus::NotSelected = self.status {
         ui.heading("No file selected");
