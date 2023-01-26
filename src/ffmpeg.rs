@@ -215,29 +215,6 @@ mod tests {
   use indoc::indoc;
 
   #[test]
-  fn deser_packet_na() {
-    const PACKET_JSON: &str = indoc! {r#"
-      {
-        "stream_index": 0,
-        "pts": "N/A",
-        "pts_time": "N/A",
-        "size": "1"
-      }
-    "#};
-    let result: serde_json::Result<Packet> = serde_json::from_str(PACKET_JSON);
-    assert!(result.is_ok());
-    assert_eq!(
-      result.unwrap(),
-      Packet {
-        stream_index: 0,
-        pts: None,
-        pts_time: None,
-        size: 1,
-      }
-    );
-  }
-
-  #[test]
   fn deser_packet() {
     const PACKET_JSON: &str = indoc! {r#"
       {
@@ -253,8 +230,8 @@ mod tests {
       result.unwrap(),
       Packet {
         stream_index: 0,
-        pts: Some(114514),
-        pts_time: Some(123.123),
+        pts: 114514,
+        pts_time: 123.123,
         size: 1,
       }
     );
