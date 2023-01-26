@@ -49,7 +49,7 @@ impl About {
 
         ui.heading("Links");
         ui.hyperlink_to(
-          format!("{} Bit Graph on GitHub", GITHUB),
+          format!("{GITHUB} Bit Graph on GitHub"),
           "https://github.com/Colerar/bitgraph",
         );
       });
